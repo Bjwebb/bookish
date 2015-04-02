@@ -1,8 +1,10 @@
 import pytest
 import os
 from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException
 from django.contrib.auth.models import User
 import bookish.models as m
+from django.core.management import call_command
 
 
 @pytest.fixture(scope="module")
@@ -61,3 +63,41 @@ def test_log_in(live_server, browser, demo_users):
     assert 'Demo Company' in body.text
     assert 'demo_client' in body.text
     assert 'Logout' in body.text
+
+
+def log_in(browser, username):
+    browser.find_element_by_link_text('Log in').click()
+    browser.find_element_by_id('id_username').send_keys(username)
+    browser.find_element_by_id('id_password').send_keys(username)
+    browser.find_element_by_css_selector('input[type=submit]').click()
+
+
+def test_inline_edit_cash(live_server, browser, client):
+    # Set up the server with some demo data, and then login
+    call_command('createdemodata')
+    browser.get(live_server.url + '/')
+    log_in(browser, 'demo_client')
+    
+    # Linda can browse to the cash page
+    browser.get(live_server.url + '/cash')
+    # She can't see any input boxes yet
+    with pytest.raises(NoSuchElementException):
+        browser.find_element_by_tag_name('input')
+    # But if she clickes on the edit button
+    browser.find_element_by_link_text('Edit').click()
+    # she stays at the same URL (ajax!)
+    assert browser.current_url == live_server.url + '/cash'
+    # and can now see inputs
+    browser.find_element_by_tag_name('input')
+    # She can change some details on the form
+    browser.find_element_by_css_selector('input[id=id_name]').clear()
+    browser.find_element_by_css_selector('input[id=id_name]').send_keys('New Description')
+    browser.find_element_by_css_selector('input[type=submit]').click()
+    # She can no longer see the input boxes
+    with pytest.raises(NoSuchElementException):
+        browser.find_element_by_tag_name('input')
+    # but the new details is still on the page
+    assert 'New Description' in browser.find_element_by_tag_name('body').text
+    # When she loads the page again, the details are still there
+    browser.get(live_server.url + '/cash')
+    assert 'New Description' in browser.find_element_by_tag_name('body').text
