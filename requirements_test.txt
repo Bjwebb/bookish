@@ -20,4 +20,4 @@ coveralls==0.5
 # Dependencies for the two above
 PyYAML==3.11
 docopt==0.6.2
-requests==2.6.0
+requests==2.6.1
